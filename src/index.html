@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>esmspy</title>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/normalize/8.0.1/normalize.min.css" />
+    <style>
+      html {
+        box-sizing: border-box;
+      }
+      *, *:before, *:after {
+        box-sizing: inherit;
+      }
+      body {
+        background-color: lightgray;
+        font-family: sans-serif;
+      }
+      html, body {
+        height: 100%;
+      }
+    </style>
+  </head>
+  <body>
+    <script type="module">
+      import Htm from 'https://unpkg.com/htm@3.0.4/dist/htm.module.js'
+      import{h, render} from 'https://cdn.pika.dev/preact@10.4.4';
+      import {useState, useEffect} from 'https://cdn.pika.dev/preact@10.4.4/hooks';
+      import {styled, setPragma} from 'https://unpkg.com/goober@1.8.0/dist/goober.module.js'
+      import PrettyBytes from 'https://cdn.pika.dev/pretty-bytes@5.3.0'
+
+      import {Router, Link, route} from '/js/preact-router.js'
+
+      const html = Htm.bind(h)
+      setPragma(h)
+
+      function urlToStoragePath(url) {
+        const { protocol, host, pathname, search } = new URL(url);
+        const [, ...paths] = pathname.split('/');
+        const encodedPaths = paths.flatMap((path) => {
+          const [firstPath, ...ats] = path.split('@');
+          return [`p:${firstPath}`, ...ats.map((at) => `a:${at}`)];
+        });
+        const urlWithoutProtocol = url.substring(`${protocol}//`.length);
+        const trailingSlashWasAdded = !urlWithoutProtocol.includes('/') && encodedPaths[0] === 'p:';
+        return [`h:${host}`, ...(trailingSlashWasAdded ? encodedPaths.slice(1) : encodedPaths), ...(search !== '' ? [`q:${search.substring(1)}`] : [])]
+            .join('/');
+      }
+
+      const extractEventValue = (setter) => ({target: {value}}) => setter(value)
+
+      const SearchBar = styled('input')`
+        font-size: 24px;
+        width: 80%;
+      `;
+      const SearchButton = styled('button')`
+        font-size: 24px;
+      `;
+      const Page = ({currentModuleUrl = '', children}) => {
+        const [searchTerm, setSearchTerm] = useState(currentModuleUrl)
+        function search(event) {
+          event.preventDefault();
+          const {host, pathname, query = ''} = new URL(searchTerm)
+          route(`/module/${host}${pathname}${query}`)
+        }
+        return html`
+          <h1><a href="/">esmspy<//><//>
+          <form onSubmit=${search}>
+            <${SearchBar}
+              type="text"
+              placeholder="https://.../uniq.js"
+              value=${searchTerm}
+              onInput=${extractEventValue(setSearchTerm)}
+            />
+            <${SearchButton} type="submit">Search<//>
+          <//>
+          ${children}
+        `
+      }
+      const HomePage = () => {
+        return html`<${Page}>
+        <//>
+        `
+      }
+
+      const ModulePage = ({moduleUrl}) => {
+        const [state, setState] = useState('loading')
+        const [snapshots, setSnapshots] = useState([])
+        const [selectedSnapshot, setSelectedSnapshot] = useState(0)
+        const [module, setModule] = useState({})
+
+        const moduleUrlWithProtocol = `https://${moduleUrl}`;
+        const storagePath = urlToStoragePath(moduleUrlWithProtocol)
+
+        useEffect(() => {
+          (async () => {
+            const response = await fetch(`https://esmspymodules.blob.core.windows.net/$web/${storagePath}/index`)
+            const snapshots = (await response.text()).split('\n').filter(Boolean)
+            setSnapshots(snapshots)
+            setSelectedSnapshot(0)
+          })()
+        }, [moduleUrl])
+        useEffect(() => {
+          if (snapshots.length <= selectedSnapshot) {
+            return;
+          }
+          (async () => {
+            const response = await fetch(`https://esmspymodules.blob.core.windows.net/$web/${storagePath}/${snapshots[selectedSnapshot]}`)
+            setModule(await response.json())
+            setState('ready')
+          })()
+        }, [snapshots, selectedSnapshot])
+
+        if (state === 'loading') {
+          return html`<${Page} currentModuleUrl=${moduleUrlWithProtocol}>
+            <p>Loading...<//>
+          <//>`
+        }
+        if (module.type === 'snapshot') {
+          return html`<${Page} currentModuleUrl=${moduleUrlWithProtocol}>
+            <dl>
+              <dt>source<//>
+              <dd><a href="${module.url}" native>${module.url}<//><//>
+              <dt>sha256<//>
+              <dd><code>${module.hash}<//><//>
+              <dt>size<//>
+              <dd>${PrettyBytes(module.size)}<//>
+            <//>
+            <h2>imports<//>
+            <ul>
+              ${module.imports.map(({url, names}) => {
+                const {host, pathname, query = ''} = new URL(url)
+                return html`<li>
+                  <a href="/module/${host}${pathname}${query}">${url}<//>
+                  <ul>
+                    ${names.map((name) => html`<li>${name}<//>`)}
+                  <//>
+                <//>`
+              })}
+            <//>
+            <h2>exports<//>
+            <ul>
+              ${module.exports.map((e) => html`<li>${e}<//>`)}
+            <//>
+          <//>
+          `;
+        }
+        return html`<p>Unsupported type ${module.type}`
+      }
+
+      const NotFoundPage = () => {
+        return html`<${Page}>
+          <h2>How did you even get here?<//>
+        <//>
+        `;
+      }
+
+      const App = () => {
+        return html`
+          <${Router}>
+            <${HomePage} path="/"/>
+            <${ModulePage} path="/module/:moduleUrl*"/>
+            <${NotFoundPage} default />
+          <//>
+        `
+      }
+      render(html`<${App}/>`, document.body)
+    </script>
+  </body>
+</html>
