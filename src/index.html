@@ -61,7 +61,8 @@
         function search(event) {
           event.preventDefault();
           const {host, pathname, query = ''} = new URL(searchTerm)
-          route(`/module/${host}${pathname}${query}`)
+          const encodedUrl = btoa(`${host}${pathname}${query}`)
+          route(`/module/${encodedUrl}`)
         }
         return html`
           <h1><a href="/">esmspy<//><//>
@@ -83,21 +84,28 @@
         `
       }
 
-      const ModulePage = ({moduleUrl}) => {
-        const [state, setState] = useState('loading')
+      const ModulePage = ({encodedUrl}) => {
+        const [state, setState] = useState('loading index')
         const [snapshots, setSnapshots] = useState([])
         const [selectedSnapshot, setSelectedSnapshot] = useState(0)
         const [module, setModule] = useState({})
 
+        const moduleUrl = atob(encodedUrl)
         const moduleUrlWithProtocol = `https://${moduleUrl}`;
         const storagePath = urlToStoragePath(moduleUrlWithProtocol)
 
         useEffect(() => {
           (async () => {
+            setState('loading index')
             const response = await fetch(`https://esmspymodules.blob.core.windows.net/$web/${storagePath}/index`)
-            const snapshots = (await response.text()).split('\n').filter(Boolean)
-            setSnapshots(snapshots)
-            setSelectedSnapshot(0)
+            if (response.ok) {
+              const snapshots = (await response.text()).split('\n').filter(Boolean)
+              setSnapshots(snapshots)
+              setSelectedSnapshot(0)
+              setState('index loaded')
+            } else {
+              setState('failed to load index')
+            }
           })()
         }, [moduleUrl])
         useEffect(() => {
@@ -105,47 +113,66 @@
             return;
           }
           (async () => {
+            setState('loading snapshot')
             const response = await fetch(`https://esmspymodules.blob.core.windows.net/$web/${storagePath}/${snapshots[selectedSnapshot]}`)
-            setModule(await response.json())
-            setState('ready')
+            if (response.ok) {
+              setModule(await response.json())
+              setState('snapshot loaded')
+            } else {
+              setState('failed to load snapshot')
+            }
           })()
         }, [snapshots, selectedSnapshot])
 
-        if (state === 'loading') {
+        if (state === 'loading index') {
           return html`<${Page} currentModuleUrl=${moduleUrlWithProtocol}>
             <p>Loading...<//>
           <//>`
         }
-        if (module.type === 'snapshot') {
+        if (state === 'failed to load index') {
           return html`<${Page} currentModuleUrl=${moduleUrlWithProtocol}>
-            <dl>
-              <dt>source<//>
-              <dd><a href="${module.url}" native>${module.url}<//><//>
-              <dt>sha256<//>
-              <dd><code>${module.hash}<//><//>
-              <dt>size<//>
-              <dd>${PrettyBytes(module.size)}<//>
-            <//>
-            <h2>imports<//>
-            <ul>
-              ${module.imports.map(({url, names}) => {
-                const {host, pathname, query = ''} = new URL(url)
-                return html`<li>
-                  <a href="/module/${host}${pathname}${query}">${url}<//>
-                  <ul>
-                    ${names.map((name) => html`<li>${name}<//>`)}
-                  <//>
-                <//>`
-              })}
-            <//>
-            <h2>exports<//>
-            <ul>
-              ${module.exports.map((e) => html`<li>${e}<//>`)}
-            <//>
-          <//>
-          `;
+            <p>Failed to load index. Check your internet.<//>
+          <//>`
         }
-        return html`<p>Unsupported type ${module.type}`
+        if (state === 'loading snapshot') {
+          return html`<${Page} currentModuleUrl=${moduleUrlWithProtocol}>
+            <p>Loading...<//>
+          <//>`
+        }
+        if (state === 'failed to load snapshot') {
+          return html`<${Page} currentModuleUrl=${moduleUrlWithProtocol}>
+            <p>Failed to load snapshot. Check your internet.<//>
+          <//>`
+        }
+        if (module.type !== 'snapshot') {
+          return html`<p>Unsupported type ${module.type}`
+        }
+        return html`<${Page} currentModuleUrl=${moduleUrlWithProtocol}>
+          <dl>
+            <dt>source<//>
+            <dd><a href="${module.url}" native>${module.url}<//><//>
+            <dt>sha256<//>
+            <dd><code>${module.sha256}<//><//>
+            <dt>size<//>
+            <dd>${PrettyBytes(module.size)}<//>
+          <//>
+          <h2>imports<//>
+          <ul>
+            ${module.imports.map(({url, names}) => {
+              const {host, pathname, query = ''} = new URL(url)
+              return html`<li>
+                <a href="/module/${host}${pathname}${query}">${url}<//>
+                <ul>
+                  ${names.map((name) => html`<li>${name}<//>`)}
+                <//>
+              <//>`
+            })}
+          <//>
+          <h2>exports<//>
+          <ul>
+            ${module.exports.map((e) => html`<li>${e}<//>`)}
+          <//>
+        <//>`;
       }
 
       const NotFoundPage = () => {
@@ -159,7 +186,7 @@
         return html`
           <${Router}>
             <${HomePage} path="/"/>
-            <${ModulePage} path="/module/:moduleUrl*"/>
+            <${ModulePage} path="/module/:encodedUrl"/>
             <${NotFoundPage} default />
           <//>
         `
