@@ -1,7 +1,7 @@
 import { ServerRequest, serve } from "https://deno.land/std@0.53.0/http/server.ts";
 import { readFileStr, exists} from "https://deno.land/std@0.53.0/fs/mod.ts";
 
-const basePath = './src'
+const basePath = './docs'
 
 const encoder = new TextEncoder();
 
