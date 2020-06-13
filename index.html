@@ -143,7 +143,7 @@
             <p>Failed to load index. Check your internet.<//>
           <//>`
         }
-        if (state === 'loading snapshot') {
+        if (state === 'index loaded' || state === 'loading snapshot') {
           return html`<${Page} currentModuleUrl=${moduleUrlWithProtocol}>
             <p>Loading...<//>
           <//>`
