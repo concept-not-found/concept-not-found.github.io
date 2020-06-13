@@ -65,12 +65,15 @@
       const SearchButton = styled('button')`
         font-size: 24px;
       `;
+      function urlToEncodedUrl(url) {
+        const {host, pathname, query = ''} = new URL(url)
+        return btoa(`${host}${pathname}${query}`)
+      }
       const Page = ({currentModuleUrl = '', children}) => {
         const [searchTerm, setSearchTerm] = useState(currentModuleUrl)
         function search(event) {
           event.preventDefault();
-          const {host, pathname, query = ''} = new URL(searchTerm)
-          const encodedUrl = btoa(`${host}${pathname}${query}`)
+          const encodedUrl = urlToEncodedUrl(searchTerm)
           route(`/module/${encodedUrl}`)
         }
         return html`
@@ -93,10 +96,9 @@
         `
       }
 
-      const ModulePage = ({encodedUrl}) => {
+      const ModulePage = ({encodedUrl, snapshot}) => {
         const [state, setState] = useState('loading index')
         const [snapshots, setSnapshots] = useState([])
-        const [selectedSnapshot, setSelectedSnapshot] = useState(0)
         const [module, setModule] = useState({})
 
         const moduleUrl = atob(encodedUrl)
@@ -110,7 +112,7 @@
             if (response.ok) {
               const snapshots = (await response.text()).split('\n').filter(Boolean)
               setSnapshots(snapshots)
-              setSelectedSnapshot(0)
+              route(`/module/${encodedUrl}/${snapshots[0]}`, true)
               setState('index loaded')
             } else {
               setState('failed to load index')
@@ -118,12 +120,12 @@
           })()
         }, [moduleUrl])
         useEffect(() => {
-          if (snapshots.length <= selectedSnapshot) {
+          if (!snapshot) {
             return;
           }
           (async () => {
             setState('loading snapshot')
-            const response = await fetch(`https://esmspymodules.blob.core.windows.net/$web/${storagePath}/${snapshots[selectedSnapshot]}`)
+            const response = await fetch(`https://esmspymodules.blob.core.windows.net/$web/${storagePath}/${snapshot}`)
             if (response.ok) {
               setModule(await response.json())
               setState('snapshot loaded')
@@ -131,7 +133,7 @@
               setState('failed to load snapshot')
             }
           })()
-        }, [snapshots, selectedSnapshot])
+        }, [snapshot])
 
         if (state === 'loading index') {
           return html`<${Page} currentModuleUrl=${moduleUrlWithProtocol}>
@@ -170,7 +172,7 @@
             ${module.imports.map(({url, names}) => {
               const {host, pathname, query = ''} = new URL(url)
               return html`<li>
-                <a href="/module/${host}${pathname}${query}">${url}<//>
+                <a href="/module/${urlToEncodedUrl(url)}">${url}<//>
                 <ul>
                   ${names.map((name) => html`<li>${name}<//>`)}
                 <//>
@@ -195,7 +197,7 @@
         return html`
           <${Router}>
             <${HomePage} path="/"/>
-            <${ModulePage} path="/module/:encodedUrl"/>
+            <${ModulePage} path="/module/:encodedUrl/:snapshot?"/>
             <${NotFoundPage} default />
           <//>
         `
