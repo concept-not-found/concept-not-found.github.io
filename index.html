@@ -20,6 +20,13 @@
         height: 100%;
       }
     </style>
+    <script async src="https://www.googletagmanager.com/gtag/js?id=UA-46487570-2"></script>
+    <script>
+      window.dataLayer = window.dataLayer || [];
+      function gtag(){dataLayer.push(arguments);}
+      gtag('js', new Date());
+      gtag('config', 'UA-46487570-2');
+    </script>
     <script>
       (() => {
         const href = sessionStorage.getItem('github-404-href');
@@ -69,7 +76,7 @@
         const {host, pathname, query = ''} = new URL(url)
         return btoa(`${host}${pathname}${query}`)
       }
-      const Page = ({encodedUrl, children}) => {
+      const Page = ({encodedUrl = '', children}) => {
         const [searchTerm, setSearchTerm] = useState(encodedUrlToModuleUrlWithProtocol(encodedUrl))
         function search(event) {
           event.preventDefault();
@@ -133,6 +140,9 @@
       }
 
       function encodedUrlToModuleUrlWithProtocol(encodedUrl) {
+        if (!encodedUrl) {
+          return '';
+        }
         const moduleUrl = atob(encodedUrl)
         return`https://${moduleUrl}`;
       }
@@ -225,9 +235,15 @@
         `;
       }
 
+      function routeChanged(event) {
+        gtag('config', 'UA-46487570-2', {
+          'page_path': event.url
+        });
+      }
+
       const App = () => {
         return html`
-          <${Router}>
+          <${Router} onChange=${routeChanged}>
             <${HomePage} path="/"/>
             <${ModulePage} path="/module/:encodedUrl/:snapshot?"/>
             <${NotFoundPage} default />
