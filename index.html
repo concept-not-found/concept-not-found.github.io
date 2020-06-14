@@ -156,20 +156,32 @@
         const moduleUrlWithProtocol = encodedUrlToModuleUrlWithProtocol(encodedUrl)
         return urlToStoragePath(moduleUrlWithProtocol)
       }
+
       const ModulePage = ({encodedUrl, snapshot}) => {
-        const [state, setState] = useState('loading snapshot')
-        const [module, setModule] = useState({})
-        const search = useContext(SearchContext)
         const setSearchTerm = useContext(SetSearchTermContext)
 
         useEffect(() => {
           setSearchTerm(encodedUrlToModuleUrlWithProtocol(encodedUrl))
         }, [encodedUrl])
 
+        return html`
+          <${SnapshotSelector}
+            encodedUrl=${encodedUrl}
+            snapshot=${snapshot}
+          />
+          ${snapshot && html`<${Module}
+            encodedUrl=${encodedUrl}
+            snapshot=${snapshot}
+          />`}
+        `;
+      }
+
+      const Module = ({encodedUrl, snapshot}) => {
+        const [state, setState] = useState('loading snapshot')
+        const [module, setModule] = useState({})
+        const search = useContext(SearchContext)
+
         useEffect(() => {
-          if (!snapshot) {
-            return;
-          }
           (async () => {
             setState('loading snapshot')
             const storagePath = encodedUrlToStoragePath(encodedUrl)
@@ -184,37 +196,15 @@
         }, [encodedUrl, snapshot])
 
         if (state === 'loading snapshot') {
-          return html`
-            <${SnapshotSelector}
-              encodedUrl=${encodedUrl}
-              snapshot=${snapshot}
-            />
-            <p>Loading...<//>
-          `
+          return html`<p>Loading...<//>`
         }
         if (state === 'failed to load snapshot') {
-          return html`
-            <${SnapshotSelector}
-              encodedUrl=${encodedUrl}
-              snapshot=${snapshot}
-            />
-            <p>Failed to load snapshot. Check your internet.<//>
-          `
+          return html`<p>Failed to load snapshot. Check your internet.<//>`
         }
         if (module.type !== 'snapshot') {
-          return html`<${Page} encodedUrl=${encodedUrl}>
-            <${SnapshotSelector}
-              encodedUrl=${encodedUrl}
-              snapshot=${snapshot}
-            />
-            <p>Unsupported type ${module.type}<//>
-          <//>`
+          return html`<p>Unsupported type ${module.type}<//>`
         }
         return html`
-          <${SnapshotSelector}
-            encodedUrl=${encodedUrl}
-            snapshot=${snapshot}
-          />
           <p><a href="${module.url}" native>view source<//><//>
           <p>size: ${PrettyBytes(module.size)}<//>
           <h2>${module.imports.length} imports<//>
