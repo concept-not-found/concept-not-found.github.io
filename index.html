@@ -1,87 +1,95 @@
 <!DOCTYPE html>
 <html lang="en">
   <head>
-    <meta charset="utf-8">
+    <meta charset="utf-8" />
     <title>esmspy</title>
-    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/normalize/8.0.1/normalize.min.css" />
     <style>
       html {
         box-sizing: border-box;
       }
-      *, *:before, *:after {
+      *,
+      *:before,
+      *:after {
         box-sizing: inherit;
       }
       body {
         background-color: lightgray;
         font-family: sans-serif;
       }
-      html, body {
+      html,
+      body {
         height: 100%;
       }
     </style>
     <script async src="https://www.googletagmanager.com/gtag/js?id=UA-46487570-2"></script>
     <script>
-      window.dataLayer = window.dataLayer || [];
-      function gtag(){dataLayer.push(arguments);}
-      gtag('js', new Date());
-      gtag('config', 'UA-46487570-2');
+      window.dataLayer = window.dataLayer || []
+      function gtag() {
+        dataLayer.push(arguments)
+      }
+      gtag('js', new Date())
+      gtag('config', 'UA-46487570-2')
     </script>
     <script>
-      (() => {
-        const href = sessionStorage.getItem('github-404-href');
-        sessionStorage.removeItem('github-404-href');
+      ;(() => {
+        const href = sessionStorage.getItem('github-404-href')
+        sessionStorage.removeItem('github-404-href')
         if (href && href !== location.href) {
-          history.replaceState(null, null, href);
+          history.replaceState(null, null, href)
         }
-      })();
+      })()
     </script>
   </head>
   <body>
     <script type="module">
       import Htm from 'https://unpkg.com/htm@3.0.4/dist/htm.module.js'
-      import{h, render, createContext} from 'https://cdn.pika.dev/preact@10.4.4';
-      import {useState, useEffect, useContext} from 'https://cdn.pika.dev/preact@10.4.4/hooks';
-      import {styled, setPragma} from 'https://unpkg.com/goober@1.8.0/dist/goober.module.js'
+      import { h, render, createContext } from 'https://cdn.pika.dev/preact@10.4.4'
+      import { useState, useEffect, useContext } from 'https://cdn.pika.dev/preact@10.4.4/hooks'
+      import { styled, setPragma } from 'https://unpkg.com/goober@1.8.0/dist/goober.module.js'
       import PrettyBytes from 'https://cdn.pika.dev/pretty-bytes@5.3.0'
 
-      import {Router, Link, route} from '/js/preact-router.js'
+      import { Router, Link, route } from '/js/preact-router.js'
 
       const html = Htm.bind(h)
       setPragma(h)
 
       function urlToStoragePath(url) {
-        const { protocol, host, pathname, search } = new URL(url);
-        const [, ...paths] = pathname.split('/');
+        const { protocol, host, pathname, search } = new URL(url)
+        const [, ...paths] = pathname.split('/')
         const encodedPaths = paths.flatMap((path) => {
-          const [firstPath, ...ats] = path.split('@');
-          return [`p:${firstPath}`, ...ats.map((at) => `a:${at}`)];
-        });
-        const urlWithoutProtocol = url.substring(`${protocol}//`.length);
-        const trailingSlashWasAdded = !urlWithoutProtocol.includes('/') && encodedPaths[0] === 'p:';
-        return [`h:${host}`, ...(trailingSlashWasAdded ? encodedPaths.slice(1) : encodedPaths), ...(search !== '' ? [`q:${search.substring(1)}`] : [])]
-            .join('/');
+          const [firstPath, ...ats] = path.split('@')
+          return [`p:${firstPath}`, ...ats.map((at) => `a:${at}`)]
+        })
+        const urlWithoutProtocol = url.substring(`${protocol}//`.length)
+        const trailingSlashWasAdded = !urlWithoutProtocol.includes('/') && encodedPaths[0] === 'p:'
+        return [
+          `h:${host}`,
+          ...(trailingSlashWasAdded ? encodedPaths.slice(1) : encodedPaths),
+          ...(search !== '' ? [`q:${search.substring(1)}`] : []),
+        ].join('/')
       }
 
-      const extractEventValue = (setter) => ({target: {value}}) => setter(value)
+      const extractEventValue = (setter) => ({ target: { value } }) => setter(value)
 
       const SearchBar = styled('input')`
         font-size: 24px;
         width: 80%;
-      `;
+      `
       const SearchButton = styled('button')`
         font-size: 24px;
-      `;
+      `
       function urlToEncodedUrl(url) {
-        const {host, pathname, query = ''} = new URL(url)
+        const { host, pathname, query = '' } = new URL(url)
         return btoa(`${host}${pathname}${query}`)
       }
       const SearchContext = createContext(() => {})
       const SetSearchTermContext = createContext(() => {})
-      const Page = ({children}) => {
+      const Page = ({ children }) => {
         const [searchTerm, setSearchTerm] = useState('')
         function search(searchTerm) {
-          event.preventDefault();
+          event.preventDefault()
           route(`/module/${urlToEncodedUrl(searchTerm)}`)
         }
         function searchFromInput() {
@@ -106,16 +114,15 @@
         `
       }
 
-
       const HomePage = () => {
         return html`<p>Welcome<//>`
       }
 
-      function SnapshotSelector({encodedUrl, snapshot}) {
+      function SnapshotSelector({ encodedUrl, snapshot }) {
         const [state, setState] = useState('loading index')
         const [snapshots, setSnapshots] = useState([])
         useEffect(() => {
-          (async () => {
+          ;(async () => {
             setState('loading index')
             const storagePath = encodedUrlToStoragePath(encodedUrl)
             const response = await fetch(`https://esmspymodules.blob.core.windows.net/$web/${storagePath}/index`)
@@ -141,23 +148,25 @@
         return html`
           <h2>sha256 snapshots<//>
           <ul>
-            ${snapshots.map((s) => html`<li key=${s}>
-              <a href="/module/${encodedUrl}/${s}">${s === snapshot ? html`<b>${s}<//>` : s}<//>
-            <//>`)}
+            ${snapshots.map(
+              (s) => html`<li key=${s}>
+                <a href="/module/${encodedUrl}/${s}">${s === snapshot ? html`<b>${s}<//>` : s}<//>
+              <//>`
+            )}
           <//>
         `
       }
 
       function encodedUrlToModuleUrlWithProtocol(encodedUrl) {
         const moduleUrl = atob(encodedUrl)
-        return`https://${moduleUrl}`;
+        return `https://${moduleUrl}`
       }
       function encodedUrlToStoragePath(encodedUrl) {
         const moduleUrlWithProtocol = encodedUrlToModuleUrlWithProtocol(encodedUrl)
         return urlToStoragePath(moduleUrlWithProtocol)
       }
 
-      const ModulePage = ({encodedUrl, snapshot}) => {
+      const ModulePage = ({ encodedUrl, snapshot }) => {
         const setSearchTerm = useContext(SetSearchTermContext)
 
         useEffect(() => {
@@ -165,24 +174,18 @@
         }, [encodedUrl])
 
         return html`
-          <${SnapshotSelector}
-            encodedUrl=${encodedUrl}
-            snapshot=${snapshot}
-          />
-          ${snapshot && html`<${Module}
-            encodedUrl=${encodedUrl}
-            snapshot=${snapshot}
-          />`}
-        `;
+          <${SnapshotSelector} encodedUrl=${encodedUrl} snapshot=${snapshot} />
+          ${snapshot && html`<${Module} encodedUrl=${encodedUrl} snapshot=${snapshot} />`}
+        `
       }
 
-      const Module = ({encodedUrl, snapshot}) => {
+      const Module = ({ encodedUrl, snapshot }) => {
         const [state, setState] = useState('loading snapshot')
         const [module, setModule] = useState({})
         const search = useContext(SearchContext)
 
         useEffect(() => {
-          (async () => {
+          ;(async () => {
             setState('loading snapshot')
             const storagePath = encodedUrlToStoragePath(encodedUrl)
             const response = await fetch(`https://esmspymodules.blob.core.windows.net/$web/${storagePath}/${snapshot}`)
@@ -209,42 +212,44 @@
           <p>size: ${PrettyBytes(module.size)}<//>
           <h2>${module.imports.length} imports<//>
           <ul>
-            ${module.imports.map(({url, names}) => html`<li key=${url}>
-              <a href=# onClick=${() => search(url)}>${url}<//>
-              <ul>
-                ${names.map((name) => html`<li>${name}<//>`)}
-              <//>
-            <//>`)}
+            ${module.imports.map(
+              ({ url, names }) => html`<li key=${url}>
+                <a href="#" onClick=${() => search(url)}>${url}<//>
+                <ul>
+                  ${names.map((name) => html`<li>${name}<//>`)}
+                <//>
+              <//>`
+            )}
           <//>
           <h2>${module.exports.length} exports<//>
           <ul>
             ${module.exports.map((e) => html`<li>${e}<//>`)}
           <//>
-        `;
+        `
       }
 
       const NotFoundPage = () => {
-        return html`<h2>How did you even get here?<//>`;
+        return html`<h2>How did you even get here?<//>`
       }
 
       function routeChanged(event) {
         gtag('config', 'UA-46487570-2', {
-          'page_path': event.url
-        });
+          page_path: event.url,
+        })
       }
 
       const App = () => {
         return html`<${Router} onChange=${routeChanged}>
           <${Page} path="/:*?">
             <${Router}>
-              <${HomePage} path="/"/>
-              <${ModulePage} path="/module/:encodedUrl/:snapshot?"/>
+              <${HomePage} path="/" />
+              <${ModulePage} path="/module/:encodedUrl/:snapshot?" />
               <${NotFoundPage} default />
             <//>
           <//>
         <//>`
       }
-      render(html`<${App}/>`, document.body)
+      render(html`<${App} />`, document.body)
     </script>
   </body>
 </html>
