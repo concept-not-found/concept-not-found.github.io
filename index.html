@@ -40,8 +40,8 @@
   <body>
     <script type="module">
       import Htm from 'https://unpkg.com/htm@3.0.4/dist/htm.module.js'
-      import{h, render} from 'https://cdn.pika.dev/preact@10.4.4';
-      import {useState, useEffect} from 'https://cdn.pika.dev/preact@10.4.4/hooks';
+      import{h, render, createContext} from 'https://cdn.pika.dev/preact@10.4.4';
+      import {useState, useEffect, useContext} from 'https://cdn.pika.dev/preact@10.4.4/hooks';
       import {styled, setPragma} from 'https://unpkg.com/goober@1.8.0/dist/goober.module.js'
       import PrettyBytes from 'https://cdn.pika.dev/pretty-bytes@5.3.0'
 
@@ -76,15 +76,20 @@
         const {host, pathname, query = ''} = new URL(url)
         return btoa(`${host}${pathname}${query}`)
       }
-      const Page = ({encodedUrl = '', children}) => {
-        const [searchTerm, setSearchTerm] = useState(encodedUrlToModuleUrlWithProtocol(encodedUrl))
-        function search(event) {
+      const SearchContext = createContext(() => {})
+      const SetSearchTermContext = createContext(() => {})
+      const Page = ({children}) => {
+        const [searchTerm, setSearchTerm] = useState('')
+        function search(searchTerm) {
           event.preventDefault();
           route(`/module/${urlToEncodedUrl(searchTerm)}`)
         }
+        function searchFromInput() {
+          return search(searchTerm)
+        }
         return html`
           <h1><a href="/">esmspy<//><//>
-          <form onSubmit=${search}>
+          <form onSubmit=${searchFromInput}>
             <${SearchBar}
               type="text"
               placeholder="https://.../uniq.js"
@@ -93,13 +98,17 @@
             />
             <${SearchButton} type="submit">Search<//>
           <//>
-          ${children}
+          <${SearchContext.Provider} value=${search}>
+            <${SetSearchTermContext.Provider} value=${setSearchTerm}>
+              ${children}
+            <//>
+          <//>
         `
       }
+
+
       const HomePage = () => {
-        return html`<${Page}>
-        <//>
-        `
+        return html`<p>Welcome<//>`
       }
 
       function SnapshotSelector({encodedUrl, snapshot}) {
@@ -140,9 +149,6 @@
       }
 
       function encodedUrlToModuleUrlWithProtocol(encodedUrl) {
-        if (!encodedUrl) {
-          return '';
-        }
         const moduleUrl = atob(encodedUrl)
         return`https://${moduleUrl}`;
       }
@@ -153,6 +159,12 @@
       const ModulePage = ({encodedUrl, snapshot}) => {
         const [state, setState] = useState('loading snapshot')
         const [module, setModule] = useState({})
+        const search = useContext(SearchContext)
+        const setSearchTerm = useContext(SetSearchTermContext)
+
+        useEffect(() => {
+          setSearchTerm(encodedUrlToModuleUrlWithProtocol(encodedUrl))
+        }, [encodedUrl])
 
         useEffect(() => {
           if (!snapshot) {
@@ -169,25 +181,25 @@
               setState('failed to load snapshot')
             }
           })()
-        }, [snapshot])
+        }, [encodedUrl, snapshot])
 
-        if (state === 'index loaded' || state === 'loading snapshot') {
-          return html`<${Page} encodedUrl=${encodedUrl}>
+        if (state === 'loading snapshot') {
+          return html`
             <${SnapshotSelector}
               encodedUrl=${encodedUrl}
               snapshot=${snapshot}
             />
             <p>Loading...<//>
-          <//>`
+          `
         }
         if (state === 'failed to load snapshot') {
-          return html`<${Page} encodedUrl=${encodedUrl}>
+          return html`
             <${SnapshotSelector}
               encodedUrl=${encodedUrl}
               snapshot=${snapshot}
             />
             <p>Failed to load snapshot. Check your internet.<//>
-          <//>`
+          `
         }
         if (module.type !== 'snapshot') {
           return html`<${Page} encodedUrl=${encodedUrl}>
@@ -198,41 +210,31 @@
             <p>Unsupported type ${module.type}<//>
           <//>`
         }
-        return html`<${Page} encodedUrl=${encodedUrl}>
+        return html`
           <${SnapshotSelector}
             encodedUrl=${encodedUrl}
             snapshot=${snapshot}
           />
-          <dl>
-            <dt>source<//>
-            <dd><a href="${module.url}" native>${module.url}<//><//>
-            <dt>size<//>
-            <dd>${PrettyBytes(module.size)}<//>
-          <//>
-          <h2>imports<//>
+          <p><a href="${module.url}" native>view source<//><//>
+          <p>size: ${PrettyBytes(module.size)}<//>
+          <h2>${module.imports.length} imports<//>
           <ul>
-            ${module.imports.map(({url, names}) => {
-              const {host, pathname, query = ''} = new URL(url)
-              return html`<li key=${url}>
-                <a href="/module/${urlToEncodedUrl(url)}">${url}<//>
-                <ul>
-                  ${names.map((name) => html`<li>${name}<//>`)}
-                <//>
-              <//>`
-            })}
+            ${module.imports.map(({url, names}) => html`<li key=${url}>
+              <a href=# onClick=${() => search(url)}>${url}<//>
+              <ul>
+                ${names.map((name) => html`<li>${name}<//>`)}
+              <//>
+            <//>`)}
           <//>
-          <h2>exports<//>
+          <h2>${module.exports.length} exports<//>
           <ul>
             ${module.exports.map((e) => html`<li>${e}<//>`)}
           <//>
-        <//>`;
+        `;
       }
 
       const NotFoundPage = () => {
-        return html`<${Page}>
-          <h2>How did you even get here?<//>
-        <//>
-        `;
+        return html`<h2>How did you even get here?<//>`;
       }
 
       function routeChanged(event) {
@@ -242,13 +244,15 @@
       }
 
       const App = () => {
-        return html`
-          <${Router} onChange=${routeChanged}>
-            <${HomePage} path="/"/>
-            <${ModulePage} path="/module/:encodedUrl/:snapshot?"/>
-            <${NotFoundPage} default />
+        return html`<${Router} onChange=${routeChanged}>
+          <${Page} path="/:*?">
+            <${Router}>
+              <${HomePage} path="/"/>
+              <${ModulePage} path="/module/:encodedUrl/:snapshot?"/>
+              <${NotFoundPage} default />
+            <//>
           <//>
-        `
+        <//>`
       }
       render(html`<${App}/>`, document.body)
     </script>
